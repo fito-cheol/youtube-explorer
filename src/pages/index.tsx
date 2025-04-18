@@ -8,12 +8,8 @@ import VideoModal from '@/components/VideoModal';
 import Header from '@/components/Header';
 import Filters from '@/components/Filters';
 import VideoGrid from '@/components/VideoGrid';
-
-// Types
-interface Country {
-  code: string;
-  name: string;
-}
+import { useVideoManager } from '@/hooks/useVideoManager';
+import { Country } from '@/types';
 
 // Constants
 const COUNTRIES: Country[] = [
@@ -28,119 +24,29 @@ export default function Home() {
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedCountry, setSelectedCountry] = useState('KR');
   const [showShorts, setShowShorts] = useState(false);
-  const [videos, setVideos] = useState<YouTubeVideo[]>([]);
   const [categories, setCategories] = useState<YouTubeCategory[]>([]);
-  const [nextPageToken, setNextPageToken] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [error, setError] = useState('');
-  const [selectedVideoIndex, setSelectedVideoIndex] = useState<number | null>(null);
-  const [activeVideoIndex, setActiveVideoIndex] = useState<number | null>(null);
-  const [popularVideos, setPopularVideos] = useState<YouTubeVideo[]>([]);
   const [isDarkMode, setIsDarkMode] = useState(false);
-  const [activeVideo, setActiveVideo] = useState<YouTubeVideo | null>(null);
 
-  // Helper functions
-  const isShorts = (duration: string): boolean => {
-    const match = duration.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
-    if (!match) return false;
-    
-    const hours = parseInt(match[1] || '0');
-    const minutes = parseInt(match[2] || '0');
-    const seconds = parseInt(match[3] || '0');
-    
-    const totalSeconds = hours * 3600 + minutes * 60 + seconds;
-    return totalSeconds <= 60;
-  };
+  const {
+    videos: filteredVideos,
+    loading,
+    loadingMore,
+    error,
+    nextPageToken,
+    activeVideo,
+    popularVideos,
+    handleLoadMore,
+    handleOpenVideo,
+    handleCloseVideo,
+    handlePreviousVideo,
+    handleNextVideo,
+  } = useVideoManager({
+    selectedCountry,
+    selectedCategory,
+    showShorts,
+  });
 
-  const loadVideos = async (pageToken: string = ''): Promise<void> => {
-    try {
-      const response = await fetchTrendingVideos(selectedCountry, selectedCategory, pageToken);
-      
-      if (pageToken) {
-        setVideos(prev => [...prev, ...response.videos]);
-      } else {
-        setVideos(response.videos);
-      }
-      setNextPageToken(response.nextPageToken);
-    } catch (err) {
-      setError('비디오를 불러오는 중 오류가 발생했습니다.');
-      console.error(err);
-    }
-  };
-
-  const handleLoadMore = async (): Promise<void> => {
-    if (!nextPageToken || loadingMore) return;
-    
-    setLoadingMore(true);
-    await loadVideos(nextPageToken);
-    setLoadingMore(false);
-  };
-
-  const handleVideoChange = (index: number) => {
-    setSelectedVideoIndex(index);
-  };
-
-  const handleOpenVideo = async (videoId: string) => {
-    try {
-      // 현재 비디오의 인덱스 찾기
-      const videoIndex = filteredVideos.findIndex(video => video.id === videoId);
-      if (videoIndex !== -1) {
-        setActiveVideoIndex(videoIndex);
-      }
-
-      // 선택된 비디오 정보 가져오기
-      const videoResponse = await fetch(`https://www.googleapis.com/youtube/v3/videos?key=${process.env.NEXT_PUBLIC_YOUTUBE_API_KEY}&id=${videoId}&part=snippet,statistics,contentDetails`);
-      const videoData = await videoResponse.json();
-      const video = videoData.items[0];
-      
-      const selectedVideo = {
-        id: video.id,
-        title: video.snippet.title,
-        channelTitle: video.snippet.channelTitle,
-        channelId: video.snippet.channelId,
-        thumbnailUrl: video.snippet.thumbnails.high.url,
-        viewCount: video.statistics.viewCount,
-        likeCount: video.statistics.likeCount || '0',
-        publishedAt: video.snippet.publishedAt,
-        duration: video.contentDetails.duration,
-      };
-
-      // 인기 비디오 로드
-      const response = await fetch(`https://www.googleapis.com/youtube/v3/search?key=${process.env.NEXT_PUBLIC_YOUTUBE_API_KEY}&channelId=${selectedVideo.channelId}&order=viewCount&part=snippet&type=video&maxResults=2`);
-      const data = await response.json();
-      
-      if (data.items) {
-        const popularVideosData = await Promise.all(
-          data.items.map(async (item: any) => {
-            const videoResponse = await fetch(`https://www.googleapis.com/youtube/v3/videos?key=${process.env.NEXT_PUBLIC_YOUTUBE_API_KEY}&id=${item.id.videoId}&part=snippet,statistics,contentDetails`);
-            const videoData = await videoResponse.json();
-            const video = videoData.items[0];
-            
-            return {
-              id: video.id,
-              title: video.snippet.title,
-              channelTitle: video.snippet.channelTitle,
-              channelId: video.snippet.channelId,
-              thumbnailUrl: video.snippet.thumbnails.high.url,
-              viewCount: video.statistics.viewCount,
-              likeCount: video.statistics.likeCount || '0',
-              publishedAt: video.snippet.publishedAt,
-              duration: video.contentDetails.duration,
-            };
-          })
-        );
-        setPopularVideos(popularVideosData);
-      }
-
-      // 현재 재생 중인 비디오 업데이트
-      setActiveVideo(selectedVideo);
-    } catch (err) {
-      console.error('비디오를 불러오는 중 오류가 발생했습니다.', err);
-    }
-  };
-
-  // Effects
+  // Load categories
   useEffect(() => {
     const loadCategories = async (): Promise<void> => {
       try {
@@ -154,18 +60,7 @@ export default function Home() {
     loadCategories();
   }, [selectedCountry]);
 
-  useEffect(() => {
-    const initialLoad = async (): Promise<void> => {
-      setLoading(true);
-      setError('');
-      await loadVideos();
-      setLoading(false);
-    };
-
-    initialLoad();
-  }, [selectedCategory, selectedCountry]);
-
-  // 다크모드 상태 초기화
+  // Initialize dark mode
   useEffect(() => {
     const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
     setIsDarkMode(isDark);
@@ -174,173 +69,24 @@ export default function Home() {
     }
   }, []);
 
-  // 다크모드 토글 핸들러
+  // Dark mode toggle handler
   const toggleDarkMode = () => {
     setIsDarkMode(!isDarkMode);
     document.documentElement.classList.toggle('dark');
   };
 
   // Computed values
-  const filteredVideos = showShorts
-    ? videos.filter(video => isShorts(video.duration))
-    : videos;
-
-  const shortsCount = videos.filter(video => isShorts(video.duration)).length;
-  const totalCount = videos.length;
-
-  // Video modal handlers
-  const handleCloseVideo = () => {
-    setActiveVideoIndex(null);
-    setActiveVideo(null);
-  };
-
-  const handlePreviousVideo = async (e: React.MouseEvent) => {
-    console.log('Previous button clicked');
-    console.log('Current activeVideoIndex:', activeVideoIndex);
-    e.stopPropagation();
-    if (activeVideoIndex !== null && activeVideoIndex > 0) {
-      const newIndex = activeVideoIndex - 1;
-      console.log('New index:', newIndex);
-      setActiveVideoIndex(newIndex);
-      
-      // 새 비디오 설정
-      const selectedVideo = filteredVideos[newIndex];
-      console.log('Selected video:', selectedVideo);
-      setActiveVideo(selectedVideo);
-      
-      // 인기 비디오 업데이트
-      try {
-        const response = await fetch(`https://www.googleapis.com/youtube/v3/search?key=${process.env.NEXT_PUBLIC_YOUTUBE_API_KEY}&channelId=${selectedVideo.channelId}&order=viewCount&part=snippet&type=video&maxResults=2`);
-        const data = await response.json();
-        
-        if (data.items) {
-          const popularVideosData = await Promise.all(
-            data.items.map(async (item: any) => {
-              const videoResponse = await fetch(`https://www.googleapis.com/youtube/v3/videos?key=${process.env.NEXT_PUBLIC_YOUTUBE_API_KEY}&id=${item.id.videoId}&part=snippet,statistics,contentDetails`);
-              const videoData = await videoResponse.json();
-              const video = videoData.items[0];
-              
-              return {
-                id: video.id,
-                title: video.snippet.title,
-                channelTitle: video.snippet.channelTitle,
-                channelId: video.snippet.channelId,
-                thumbnailUrl: video.snippet.thumbnails.high.url,
-                viewCount: video.statistics.viewCount,
-                likeCount: video.statistics.likeCount || '0',
-                publishedAt: video.snippet.publishedAt,
-                duration: video.contentDetails.duration,
-              };
-            })
-          );
-          setPopularVideos(popularVideosData);
-        }
-      } catch (err) {
-        console.error('인기 비디오를 불러오는 중 오류가 발생했습니다.', err);
-      }
-    }
-  };
-
-  const handleNextVideo = async (e: React.MouseEvent) => {
-    console.log('Next button clicked');
-    console.log('Current activeVideoIndex:', activeVideoIndex);
-    e.stopPropagation();
-    if (activeVideoIndex !== null && activeVideoIndex < filteredVideos.length - 1) {
-      const newIndex = activeVideoIndex + 1;
-      console.log('New index:', newIndex);
-      setActiveVideoIndex(newIndex);
-      
-      // 새 비디오 설정
-      const selectedVideo = filteredVideos[newIndex];
-      console.log('Selected video:', selectedVideo);
-      setActiveVideo(selectedVideo);
-      
-      // 인기 비디오 업데이트
-      try {
-        const response = await fetch(`https://www.googleapis.com/youtube/v3/search?key=${process.env.NEXT_PUBLIC_YOUTUBE_API_KEY}&channelId=${selectedVideo.channelId}&order=viewCount&part=snippet&type=video&maxResults=2`);
-        const data = await response.json();
-        
-        if (data.items) {
-          const popularVideosData = await Promise.all(
-            data.items.map(async (item: any) => {
-              const videoResponse = await fetch(`https://www.googleapis.com/youtube/v3/videos?key=${process.env.NEXT_PUBLIC_YOUTUBE_API_KEY}&id=${item.id.videoId}&part=snippet,statistics,contentDetails`);
-              const videoData = await videoResponse.json();
-              const video = videoData.items[0];
-              
-              return {
-                id: video.id,
-                title: video.snippet.title,
-                channelTitle: video.snippet.channelTitle,
-                channelId: video.snippet.channelId,
-                thumbnailUrl: video.snippet.thumbnails.high.url,
-                viewCount: video.statistics.viewCount,
-                likeCount: video.statistics.likeCount || '0',
-                publishedAt: video.snippet.publishedAt,
-                duration: video.contentDetails.duration,
-              };
-            })
-          );
-          setPopularVideos(popularVideosData);
-        }
-      } catch (err) {
-        console.error('인기 비디오를 불러오는 중 오류가 발생했습니다.', err);
-      }
-    }
-  };
-
-  // Keyboard events for video navigation
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (activeVideoIndex === null) return;
-
-      if (e.key === 'ArrowLeft' && activeVideoIndex > 0) {
-        setActiveVideoIndex(activeVideoIndex - 1);
-      } else if (e.key === 'ArrowRight' && activeVideoIndex < filteredVideos.length - 1) {
-        setActiveVideoIndex(activeVideoIndex + 1);
-      } else if (e.key === 'Escape') {
-        setActiveVideoIndex(null);
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeVideoIndex, filteredVideos.length]);
-
-  // Format helpers for the modal
-  const formatCount = (count: string): string => {
-    const num = parseInt(count);
+  const shortsCount = filteredVideos.filter(video => {
+    const match = video.duration.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+    if (!match) return false;
     
-    if (num >= 1000000) {
-      return `${(num / 1000000).toFixed(1)}M`;
-    }
+    const hours = parseInt(match[1] || '0');
+    const minutes = parseInt(match[2] || '0');
+    const seconds = parseInt(match[3] || '0');
     
-    if (num >= 1000) {
-      return `${(num / 1000).toFixed(1)}K`;
-    }
-    
-    return count;
-  };
-  
-  const formatDate = (dateString: string): string => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('ko-KR', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    });
-  };
-
-  // 모달이 열렸을 때 body 스크롤 막기
-  useEffect(() => {
-    if (activeVideoIndex !== null) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = 'unset';
-    }
-    return () => {
-      document.body.style.overflow = 'unset';
-    };
-  }, [activeVideoIndex]);
+    const totalSeconds = hours * 3600 + minutes * 60 + seconds;
+    return totalSeconds <= 60;
+  }).length;
 
   return (
     <>
@@ -364,7 +110,7 @@ export default function Home() {
             showShorts={showShorts}
             categories={categories}
             shortsCount={shortsCount}
-            totalCount={totalCount}
+            totalCount={filteredVideos.length}
             onCategoryChange={setSelectedCategory}
             onCountryChange={setSelectedCountry}
             onShowShortsChange={setShowShorts}
