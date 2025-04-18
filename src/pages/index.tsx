@@ -83,6 +83,12 @@ export default function Home() {
 
   const handleOpenVideo = async (videoId: string) => {
     try {
+      // 현재 비디오의 인덱스 찾기
+      const videoIndex = filteredVideos.findIndex(video => video.id === videoId);
+      if (videoIndex !== -1) {
+        setActiveVideoIndex(videoIndex);
+      }
+
       // 선택된 비디오 정보 가져오기
       const videoResponse = await fetch(`https://www.googleapis.com/youtube/v3/videos?key=${process.env.NEXT_PUBLIC_YOUTUBE_API_KEY}&id=${videoId}&part=snippet,statistics,contentDetails`);
       const videoData = await videoResponse.json();
@@ -185,16 +191,24 @@ export default function Home() {
   // Video modal handlers
   const handleCloseVideo = () => {
     setActiveVideoIndex(null);
+    setActiveVideo(null);
   };
 
   const handlePreviousVideo = async (e: React.MouseEvent) => {
+    console.log('Previous button clicked');
+    console.log('Current activeVideoIndex:', activeVideoIndex);
     e.stopPropagation();
     if (activeVideoIndex !== null && activeVideoIndex > 0) {
       const newIndex = activeVideoIndex - 1;
+      console.log('New index:', newIndex);
       setActiveVideoIndex(newIndex);
       
-      // 인기 비디오 업데이트
+      // 새 비디오 설정
       const selectedVideo = filteredVideos[newIndex];
+      console.log('Selected video:', selectedVideo);
+      setActiveVideo(selectedVideo);
+      
+      // 인기 비디오 업데이트
       try {
         const response = await fetch(`https://www.googleapis.com/youtube/v3/search?key=${process.env.NEXT_PUBLIC_YOUTUBE_API_KEY}&channelId=${selectedVideo.channelId}&order=viewCount&part=snippet&type=video&maxResults=2`);
         const data = await response.json();
@@ -228,13 +242,20 @@ export default function Home() {
   };
 
   const handleNextVideo = async (e: React.MouseEvent) => {
+    console.log('Next button clicked');
+    console.log('Current activeVideoIndex:', activeVideoIndex);
     e.stopPropagation();
     if (activeVideoIndex !== null && activeVideoIndex < filteredVideos.length - 1) {
       const newIndex = activeVideoIndex + 1;
+      console.log('New index:', newIndex);
       setActiveVideoIndex(newIndex);
       
-      // 인기 비디오 업데이트
+      // 새 비디오 설정
       const selectedVideo = filteredVideos[newIndex];
+      console.log('Selected video:', selectedVideo);
+      setActiveVideo(selectedVideo);
+      
+      // 인기 비디오 업데이트
       try {
         const response = await fetch(`https://www.googleapis.com/youtube/v3/search?key=${process.env.NEXT_PUBLIC_YOUTUBE_API_KEY}&channelId=${selectedVideo.channelId}&order=viewCount&part=snippet&type=video&maxResults=2`);
         const data = await response.json();

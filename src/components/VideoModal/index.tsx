@@ -46,7 +46,10 @@ const VideoModal: React.FC<VideoModalProps> = ({
   return (
     <div 
       className="fixed inset-0 bg-black bg-opacity-75 z-50 flex flex-col items-center p-4"
-      onClick={onClose}
+      onClick={(e) => {
+        console.log('Modal backdrop clicked');
+        onClose();
+      }}
     >
       {/* 메인 비디오 컨테이너 */}
       <div className="flex-1 flex items-center justify-center">
@@ -54,7 +57,11 @@ const VideoModal: React.FC<VideoModalProps> = ({
           {/* Previous Video Button */}
           {filteredVideos.length > 0 && filteredVideos.findIndex(v => v.id === activeVideo.id) > 0 && (
             <button
-              onClick={onPreviousVideo}
+              onClick={(e) => {
+                console.log('Previous button clicked');
+                e.stopPropagation();
+                onPreviousVideo(e);
+              }}
               className="flex-shrink-0 mr-4 bg-black bg-opacity-50 hover:bg-opacity-75 text-white p-4 rounded-full transition-all duration-200 z-10"
             >
               <ChevronLeftIcon className="h-8 w-8" />
@@ -63,7 +70,10 @@ const VideoModal: React.FC<VideoModalProps> = ({
 
           <div 
             className="bg-white dark:bg-gray-800 rounded-lg w-full overflow-hidden relative"
-            onClick={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              console.log('Video container clicked');
+              e.stopPropagation();
+            }}
           >
             <div className="relative" style={{ paddingBottom: '56.25%' }}>
               <iframe
@@ -79,6 +89,7 @@ const VideoModal: React.FC<VideoModalProps> = ({
                 <h2 className="text-xl font-bold text-gray-900 dark:text-white">{activeVideo.title}</h2>
                 <button
                   onClick={(e) => {
+                    console.log('Close button clicked');
                     e.stopPropagation();
                     onClose();
                   }}
@@ -105,7 +116,11 @@ const VideoModal: React.FC<VideoModalProps> = ({
           {/* Next Video Button */}
           {filteredVideos.length > 0 && filteredVideos.findIndex(v => v.id === activeVideo.id) < filteredVideos.length - 1 && (
             <button
-              onClick={onNextVideo}
+              onClick={(e) => {
+                console.log('Next button clicked');
+                e.stopPropagation();
+                onNextVideo(e);
+              }}
               className="flex-shrink-0 ml-4 bg-black bg-opacity-50 hover:bg-opacity-75 text-white p-4 rounded-full transition-all duration-200 z-10"
             >
               <ChevronRightIcon className="h-8 w-8" />
